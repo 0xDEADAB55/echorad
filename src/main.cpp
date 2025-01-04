@@ -1,38 +1,58 @@
-//ВАЖНО! Схемы подключения по образцу вы можете найти в "extras/Example schemes/ESP32 & ESP8266/" и выбрать свою плату
-// Подключаем необходимые библиотеки
 #include <Arduino.h>
-#include "CG_RadSens.h"  // Библиотека RadSens
-#include <Wire.h>        // I2C-библиотека
-#include <GyverOLED.h>   // Библиотека для OLED Gyver'а идеально подойдёт для понимания методики работы с OLED-экраном, к тому же тут сразу есть русский шрифт
-#define buz 19   // Устанавливаем управляющий пин пьезоизлучателя. Если вы выбрали другой управляющий пин - замените значение
-#define BLINK_LED 13
+#include <Wire.h>
+
+#include "CG_RadSens.h"
+#include <GyverOLED.h>
+#include <TimerMs.h>
+
+#define buz 19
+#define BLINK_LED LED_BUILTIN
 #define IMPULSE_PIN 2
+#define BATTERY_VOLDAGE_PIN A1
 
-CG_RadSens radSens(RS_DEFAULT_I2C_ADDRESS);   // Инициализируем RadSens
-GyverOLED<SSD1306_128x64, OLED_NO_BUFFER> oled;   // Инициализируем OLED-экран
+#define BATTERY_LOW_VOLTAGE_VOLTS 3.3
 
+#define INTERNAL_REF_VOLTAGE_VOLTS 1.074
+#define ADC_RESOLUTION_BITS 10
+#define V_DIVIDER_R1_OHMS 4637
+#define V_DIVIDER_R2_OHMS 981
 
-uint32_t timer_cnt; // Таймер опроса интенсивности излучения и ипульсов для OLED-экрана
-uint32_t timer_imp; // Таймер опроса импульсов для пьезоизлучателя
-uint32_t timer_oled; // таймер обновления дисплея
+CG_RadSens radSens(RS_DEFAULT_I2C_ADDRESS);
+GyverOLED<SSD1306_128x64, OLED_NO_BUFFER> oled;
+
+void onImpulse(); // interrupt handler
+void blink();
+
+void updateRadiationValues();
+void updateBatteryVoltage();
+void display();
+
+String animation[3] = {".  ", " . ", "  ."};
+int cur_animation = 0;
+
+TimerMs t_cnt = TimerMs(1000);  // get data from RadSens
+TimerMs t_oled = TimerMs(1000); // draw on oled screen
+TimerMs t_bat = TimerMs(10000); // update battery voltage
+
+uint32_t timer_imp; // blink interrupt
 
 volatile uint32_t timer_blinker = 0;
 bool is_blinker_on = false;
 
-float dynval;  // Переменная для динамического значения интенсивности
-float statval; // Переменная для статического значения интенсивности
-uint32_t impval;  // Переменная для кол-ва импульсов
+float battery_voltage = 100;
+bool battery_low = false;
 
+float dynval;
+float statval;
+uint32_t impval;
 
-void onImpulse();
-void blink();
-
-void setup() {
-  oled.init();           // Инициализируем OLED в коде
+void setup()
+{
+  oled.init();
   oled.clear();
-  oled.setScale(5);      // Устанавливаем размер шрифта
+  oled.setScale(5);
   oled.print("ECHO");
-  oled.setScale(2);
+  oled.setScale(1);
   delay(3000);
   oled.clear();
   pinMode(BLINK_LED, OUTPUT);
@@ -40,39 +60,80 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(IMPULSE_PIN), onImpulse, FALLING);
   analogReference(INTERNAL);
   Serial.begin(9600);
+
+  t_cnt.attach(updateRadiationValues);
+  t_cnt.start();
+
+  t_oled.attach(display);
+  t_oled.start();
+
+  t_bat.attach(updateBatteryVoltage);
+  t_bat.start();
+  analogRead(BATTERY_VOLDAGE_PIN);
 }
 
-
-
-void loop() {
-  if (millis() - timer_cnt > 1000) {      // Записываем в объявленные глобальные переменные необходимые значения
-    timer_cnt = millis();
-    dynval = radSens.getRadIntensyDynamic(); 
-    statval = radSens.getRadIntensyStatic();
-    impval = radSens.getNumberOfPulses();
-  }
-
-  if (millis() - timer_oled > 1000) {  //Записываем переменные в строки и выводим их на OLED-экран
-    timer_oled = millis();
-    String dynint = "Dyn:";
-    dynint += dynval;
-    dynint += "   mkR/h";
-    String statint = "Stat:";
-    statint += statval;
-    statint += "   mkR/h ";
-    String nimp = "Imp:";
-    nimp += impval;
-    nimp += " ";
-    oled.setCursor(0, 1);
-    oled.print(dynint);
-    oled.setCursor(0, 3);
-    oled.print(statint);
-    oled.setCursor(0, 5);
-    oled.print(nimp);
-  }
+void loop()
+{
+  t_cnt.tick();
+  t_oled.tick();
+  t_bat.tick();
 
   blink();
+}
 
+void updateRadiationValues()
+{
+  dynval = radSens.getRadIntensyDynamic();
+  statval = radSens.getRadIntensyStatic();
+  impval = radSens.getNumberOfPulses();
+}
+
+void display()
+{
+  String dynint = "Dyn:";
+  dynint += dynval;
+  dynint += "   mkR/h";
+  String statint = "Stat:";
+  statint += statval;
+  statint += "   mkR/h ";
+  String nimp = "Imp:";
+  nimp += impval;
+  nimp += " ";
+  String nbat = "Batt: ";
+  cur_animation = (cur_animation + 1) % 3;
+  if (battery_voltage > 15)
+  {
+    nbat += animation[cur_animation];
+  }
+  else
+  {
+    nbat += battery_voltage;
+    if (battery_low && cur_animation > 0)
+    {
+      nbat += "V LOW!  ";
+    }
+    else
+    {
+      nbat += "V      ";
+    }
+  }
+
+  oled.setCursor(0, 1);
+  oled.print(dynint);
+  oled.setCursor(0, 3);
+  oled.print(statint);
+  oled.setCursor(0, 5);
+  oled.print(nimp);
+  oled.setCursor(0, 7);
+  oled.print(nbat);
+}
+
+void updateBatteryVoltage()
+{
+  int val = analogRead(A1);
+  float input_voltage = val * INTERNAL_REF_VOLTAGE_VOLTS / (1 << ADC_RESOLUTION_BITS);
+  battery_voltage = input_voltage * (V_DIVIDER_R1_OHMS + V_DIVIDER_R2_OHMS) / V_DIVIDER_R2_OHMS;
+  battery_low = battery_voltage < BATTERY_LOW_VOLTAGE_VOLTS;
 }
 
 void blink()
