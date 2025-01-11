@@ -3,9 +3,10 @@
 
 #include "CG_RadSens.h"
 #include <GyverOLED.h>
+#include <GyverPWM.h>
 #include <TimerMs.h>
 
-#define buz 19
+#define BUZZER_PWM_PIN 9
 #define BLINK_LED LED_BUILTIN
 #define IMPULSE_PIN 2
 #define BATTERY_VOLDAGE_PIN A1
@@ -70,6 +71,8 @@ void setup()
   t_bat.attach(updateBatteryVoltage);
   t_bat.start();
   analogRead(BATTERY_VOLDAGE_PIN);
+
+  PWM_frequency(BUZZER_PWM_PIN, 2400, 0);
 }
 
 void loop()
@@ -79,6 +82,7 @@ void loop()
   t_bat.tick();
 
   blink();
+  delay(50); // throttle down a bit
 }
 
 void updateRadiationValues()
@@ -143,9 +147,13 @@ void blink()
     if (is_blinker_on)
     {
       digitalWrite(BLINK_LED, false);
+
       oled.setCursor(92, 5);
       oled.print("[ ]");
       oled.home();
+
+      PWM_set(BUZZER_PWM_PIN, false);
+
       is_blinker_on = false;
     }
   }
@@ -154,9 +162,12 @@ void blink()
     if (!is_blinker_on)
     {
       digitalWrite(BLINK_LED, true);
+
       oled.setCursor(92, 5);
       oled.print("[#]");
       oled.home();
+
+      PWM_set(BUZZER_PWM_PIN, 25);
     }
     is_blinker_on = true;
   }
