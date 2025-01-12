@@ -11,12 +11,11 @@
 #define IMPULSE_PIN 2
 #define BATTERY_VOLDAGE_PIN A1
 
+#define REF_VOLTAGE_VOLST 5.4
+
 #define BATTERY_LOW_VOLTAGE_VOLTS 3.3
 
-#define INTERNAL_REF_VOLTAGE_VOLTS 1.074
 #define ADC_RESOLUTION_BITS 10
-#define V_DIVIDER_R1_OHMS 4637
-#define V_DIVIDER_R2_OHMS 981
 
 CG_RadSens radSens(RS_DEFAULT_I2C_ADDRESS);
 GyverOLED<SSD1306_128x64, OLED_NO_BUFFER> oled;
@@ -34,8 +33,6 @@ int cur_animation = 0;
 TimerMs t_cnt = TimerMs(1000);  // get data from RadSens
 TimerMs t_oled = TimerMs(1000); // draw on oled screen
 TimerMs t_bat = TimerMs(10000); // update battery voltage
-
-uint32_t timer_imp; // blink interrupt
 
 volatile uint32_t timer_blinker = 0;
 bool is_blinker_on = false;
@@ -56,10 +53,11 @@ void setup()
   oled.setScale(1);
   delay(3000);
   oled.clear();
-  pinMode(BLINK_LED, OUTPUT);
-  pinMode(IMPULSE_PIN, INPUT);
+  pinMode(BLINK_LED, OUTPUT); // to blink onboard led
+  pinMode(IMPULSE_PIN, INPUT); // to receive impulses from RadSens
+
   attachInterrupt(digitalPinToInterrupt(IMPULSE_PIN), onImpulse, FALLING);
-  analogReference(INTERNAL);
+
   Serial.begin(9600);
 
   t_cnt.attach(updateRadiationValues);
@@ -72,7 +70,8 @@ void setup()
   t_bat.start();
   analogRead(BATTERY_VOLDAGE_PIN);
 
-  PWM_frequency(BUZZER_PWM_PIN, 2400, 0);
+  pinMode(BUZZER_PWM_PIN, OUTPUT); // to buzz
+  PWM_frequency(BUZZER_PWM_PIN, 800, 0); // buzz frequency
 }
 
 void loop()
@@ -82,26 +81,27 @@ void loop()
   t_bat.tick();
 
   blink();
-  delay(50); // throttle down a bit
+  delay(10); // throttle down a bit
 }
 
 void updateRadiationValues()
 {
   dynval = radSens.getRadIntensyDynamic();
   statval = radSens.getRadIntensyStatic();
-  impval = radSens.getNumberOfPulses();
+  impval = radSens.getNumberOfPulses() % 1000000;
 }
 
+char buf[10] = {};
 void display()
 {
-  String dynint = "Dyn:";
-  dynint += dynval;
-  dynint += "   mkR/h";
-  String statint = "Stat:";
-  statint += statval;
-  statint += "   mkR/h ";
-  String nimp = "Imp:";
-  nimp += impval;
+  String dynint = "Dyn:  ";
+  dynint += dtostrf((double)dynval, 6, 0, buf);
+  dynint += " mkR/h ";
+  String statint = "Stat: ";
+  statint += dtostrf((double)statval, 6, 0, buf);
+  statint += " mkR/h ";
+  String nimp = "Imp:  ";
+  nimp += dtostrf((double)impval, 6, 0, buf);
   nimp += " ";
   String nbat = "Batt: ";
   cur_animation = (cur_animation + 1) % 3;
@@ -135,8 +135,8 @@ void display()
 void updateBatteryVoltage()
 {
   int val = analogRead(A1);
-  float input_voltage = val * INTERNAL_REF_VOLTAGE_VOLTS / (1 << ADC_RESOLUTION_BITS);
-  battery_voltage = input_voltage * (V_DIVIDER_R1_OHMS + V_DIVIDER_R2_OHMS) / V_DIVIDER_R2_OHMS;
+  float input_voltage = val * REF_VOLTAGE_VOLST / (1 << ADC_RESOLUTION_BITS);
+  battery_voltage = input_voltage;
   battery_low = battery_voltage < BATTERY_LOW_VOLTAGE_VOLTS;
 }
 
@@ -167,7 +167,7 @@ void blink()
       oled.print("[#]");
       oled.home();
 
-      PWM_set(BUZZER_PWM_PIN, 25);
+      PWM_set(BUZZER_PWM_PIN, 128);
     }
     is_blinker_on = true;
   }
