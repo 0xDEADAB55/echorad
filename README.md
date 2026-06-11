@@ -23,6 +23,8 @@ Some useful platfromio recources:
 EasyEDA used for schematics
 - https://pro.easyeda.com/editor
 
+Used fonts:
+- https://github.com/immortalserg/AdafruitGFXRusFonts
 
 TODO: portable build
 - https://github.com/platformio/builder-framework-arduino-nrf5/pull/12
