@@ -258,6 +258,6 @@ const GFXglyph TimesNRCyr6pt8bGlyphs[] PROGMEM = {
 const GFXfont TimesNRCyr6pt8b PROGMEM = {
   (uint8_t  *)TimesNRCyr6pt8bBitmaps,
   (GFXglyph *)TimesNRCyr6pt8bGlyphs,
-  0x20, 0xC1, 13 };
+  0x20, 0xC1, 15 };
 
 // Approx. 2206 bytes
