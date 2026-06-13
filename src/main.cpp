@@ -19,6 +19,8 @@ static constexpr uint8_t PIN_K3 = PIN_100;
 static constexpr uint8_t PIN_K4 = PIN_024;
 
 static uint32_t blinkOffAt = 0;
+static uint32_t lastButtonPress = 0;
+static constexpr uint32_t buttonDebounceIntervalMS = 50;
 
 void buzz();
 void blink();

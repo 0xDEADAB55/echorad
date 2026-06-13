@@ -41,24 +41,44 @@ namespace EchoController
 
     void EchoController::Controller::onLightButtonPressed()
     {
+        uint32_t now = millis();
+        if (now - lastLightPress < DEBOUNCE_MS)
+            return;
+        lastLightPress = now;
+
         isLightOn = !isLightOn;
         updateUI();
     }
 
     void EchoController::Controller::onSoundButtonPressed()
     {
+        uint32_t now = millis();
+        if (now - lastSoundPress < DEBOUNCE_MS)
+            return;
+        lastSoundPress = now;
+
         isSoundOn = !isSoundOn;
         updateUI();
     }
 
     void EchoController::Controller::onUnitsButtonPressed()
     {
+        uint32_t now = millis();
+        if (now - lastUnitsPress < DEBOUNCE_MS)
+            return;
+        lastUnitsPress = now;
+
         isUsingMicroSieverts = !isUsingMicroSieverts;
         updateUI();
     }
 
     void EchoController::Controller::onModeButtonPressed()
     {
+        uint32_t now = millis();
+        if (now - lastModePress < DEBOUNCE_MS)
+            return;
+        lastModePress = now;
+
         isModeStatic = !isModeStatic;
         updateUI();
     }

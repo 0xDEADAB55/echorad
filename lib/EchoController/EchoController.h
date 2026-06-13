@@ -61,6 +61,13 @@ namespace EchoController
         bool isModeStatic = true;
         bool needUIUpdate = false;
 
+        uint32_t lastSoundPress = 0;
+        uint32_t lastLightPress = 0;
+        uint32_t lastUnitsPress = 0;
+        uint32_t lastModePress = 0;
+
+        static constexpr uint32_t DEBOUNCE_MS = 50;
+
         bool isGeigerPulseReceived = false;
         uint32_t geigerPulseReceivedAtTick = 0;
 
