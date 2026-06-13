@@ -1,16 +1,19 @@
 #include <EchoController.h>
 #include <math.h>
+#include <nrf52_erratas.h>
 
 namespace EchoController
 {
 
+    void EchoController::Controller::init()
+    {
+    }
+
     void EchoController::Controller::tick()
     {
-        _tick++;
+
         if (_tick % 200 == 0)
         {
-            Serial.print("Raw dynamic uR/h: ");
-            Serial.println(radSens->getRadIntensyDynamic());
             dynamicRadiationLevel = radSens->getRadIntensyDynamic() * SV_TO_R_RATIO;
             staticRadiationLevel = radSens->getRadIntensyStatic() * SV_TO_R_RATIO;
             updateUI();
@@ -20,6 +23,8 @@ namespace EchoController
             batteryLevelVoltage = readBatteryVoltage();
             updateUI();
         }
+
+        _tick++;
     }
 
     bool EchoController::Controller::needUpdateUI()
@@ -52,9 +57,9 @@ namespace EchoController
         updateUI();
     }
 
-    void EchoController::Controller::onBluetoothButtonPressed()
+    void EchoController::Controller::onModeButtonPressed()
     {
-        isBluetoothOn = !isBluetoothOn;
+        isModeStatic = !isModeStatic;
         updateUI();
     }
 
@@ -67,7 +72,7 @@ namespace EchoController
     {
         const float zero_level = 3.0f;
         const float max_level = 4.2f;
-        const uint8_t percentage = static_cast<uint8_t>(round(batteryLevelVoltage / (max_level - zero_level) * 100));
+        const uint8_t percentage = static_cast<uint8_t>(round((batteryLevelVoltage - zero_level) / (max_level - zero_level) * 100));
         if (percentage > 100)
         {
             return 100;
@@ -100,13 +105,22 @@ namespace EchoController
         return isLightOn;
     }
 
-    bool EchoController::Controller::getIsBluetoothOn() const
+    bool EchoController::Controller::getIsModeObserveStatic() const
     {
-        return isBluetoothOn;
+        return isModeStatic;
+    }
+
+    void EchoController::Controller::onGeigerPulseReceived()
+    {
+        if (isSoundOn)
+            buzzCallback();
+        if (isLightOn)
+            blinkCallback();
     }
 
     float EchoController::Controller::readBatteryVoltage()
     {
+
         // The volatile keyword is a type qualifier in C/C++ that tells the compiler a variable's value might change in ways that the compiler cannot detect from the code alone.
         // Essentially, it says: "Don't optimize access to this variable because its value might change unexpectedly."
         volatile uint32_t raw_value = 0;
@@ -132,11 +146,28 @@ namespace EchoController
         NRF_SAADC->TASKS_SAMPLE = 1;
         while (!NRF_SAADC->EVENTS_END)
             ;
+
         NRF_SAADC->EVENTS_END = 0;
         NRF_SAADC->TASKS_STOP = 1;
         while (!NRF_SAADC->EVENTS_STOPPED)
             ;
         NRF_SAADC->EVENTS_STOPPED = 0;
+
+        // Errata 212 workaround
+        // https://github.com/NordicPlayground/nRF52-ADC-examples/blob/master/nrfx_saadc_simple_low_power_app_timer_multichannel_oversample/main.c
+        if (nrf52_errata_212())
+        {
+            volatile uint32_t temp1 = *(volatile uint32_t *)0x40007640ul;
+            volatile uint32_t temp2 = *(volatile uint32_t *)0x40007644ul;
+            volatile uint32_t temp3 = *(volatile uint32_t *)0x40007648ul;
+            *(volatile uint32_t *)0x40007FFCul = 0ul;
+            *(volatile uint32_t *)0x40007FFCul;
+            *(volatile uint32_t *)0x40007FFCul = 1ul;
+            *(volatile uint32_t *)0x40007640ul = temp1;
+            *(volatile uint32_t *)0x40007644ul = temp2;
+            *(volatile uint32_t *)0x40007648ul = temp3;
+        }
+
         NRF_SAADC->ENABLE = 0;
 
         // Force explicit double-precision calculations

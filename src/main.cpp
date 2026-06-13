@@ -7,34 +7,41 @@
 #include <CG_RadSens.h>
 #include <EchoController.h>
 
-static constexpr uint8_t RED_LED = PIN_015;            // Pin P0.15 called "LED".
-static constexpr uint8_t GEIGER_COUNTER_PIN = PIN_106; // Pin P1.00 for reacting to pulses from the Geiger counter.
+static constexpr uint8_t GEIGER_COUNTER_PIN = PIN_106; // Pin P1.00 for reacting to pulses from the Geiger counter
+static constexpr uint8_t BUZZER_PIN = PIN_002;         // P0.02 on common nice!nano v2 mappings
+static constexpr uint8_t LED_INDICATOR_PIN = PIN_017;  // For indicating a pulse from the Geiger counter
 
+static constexpr uint8_t RED_LED = PIN_015; // Pin P0.15 called "LED".
 // Oled buttons
 static constexpr uint8_t PIN_K1 = PIN_104;
 static constexpr uint8_t PIN_K2 = PIN_011;
 static constexpr uint8_t PIN_K3 = PIN_100;
 static constexpr uint8_t PIN_K4 = PIN_024;
 
-static constexpr uint8_t BUZZER_PIN = PIN_002; // P0.02 on common nice!nano v2 mappings
+static uint32_t blinkOffAt = 0;
 
-constexpr uint32_t RADIATION_MEASURE_INTERVAL_MS = 1000; // Measure radiation every 1000 milliseconds (1 second)
-uint32_t lastMeasurementTime = 0;
-
-bool isPulseDetected = false;
+void buzz();
+void blink();
+void blinkOff();
 
 CG_RadSens radSens(RS_DEFAULT_I2C_ADDRESS);
-EchoController::Controller controller(&radSens);
+EchoController::Controller controller(&radSens, buzz, blink);
 EchoDisplay::Display display(&Wire, &controller);
 
 void onFall()
 {
-  isPulseDetected = true;
+  controller.onGeigerPulseReceived();
 }
 
 void setup()
 {
-  pinMode(BUZZER_PIN, OUTPUT);
+
+  // Serial for debug
+  Serial.begin(115200);
+
+  // Init led indicator pin
+  pinMode(LED_INDICATOR_PIN, OUTPUT);
+  digitalWrite(LED_INDICATOR_PIN, LOW);
 
   // Setup oled buttons
   pinMode(PIN_K1, INPUT_PULLUP);
@@ -50,13 +57,15 @@ void setup()
   attachInterrupt(PIN_K3, []()
                   { controller.onUnitsButtonPressed(); }, FALLING);
   attachInterrupt(PIN_K4, []()
-                  { controller.onBluetoothButtonPressed(); }, FALLING);
+                  { controller.onModeButtonPressed(); }, FALLING);
 
   // Setup i2c and display
   Wire.setPins(PIN_115, PIN_113); // Set the I2C pins to P1.15 (SDA) and P1.13 (SCL) for the nice!nano v2
-  Wire.setClock(400000);          // Set I2C clock speed to 400 kHz for faster communication with the display and sensor
+  Wire.setClock(100000);          // Set I2C clock speed to 100 kHz
+  Wire.setTimeout(50);
   display.init();
-  Serial.begin(115200);
+  controller.init();
+  // Serial.begin(115200);
 
   // setup geiger counter pulse detection
   pinMode(GEIGER_COUNTER_PIN, INPUT_PULLUP);
@@ -66,19 +75,31 @@ void setup()
       FALLING);
 }
 
-void buzz()
-{
-  if (isPulseDetected && controller.getIsSoundOn())
-  {
-    isPulseDetected = false;
-    tone(BUZZER_PIN, 800, 50);
-  }
-}
-
 void loop()
 {
+  blinkOff();
   display.update();
   controller.tick();
-  buzz();
   delay(10); // Delay for 10 ms to reduce CPU usage
+}
+
+void buzz()
+{
+  tone(BUZZER_PIN, 800, 50);
+}
+
+void blink()
+{
+  digitalWrite(LED_INDICATOR_PIN, HIGH);
+  blinkOffAt = millis() + 50;
+}
+
+void blinkOff()
+{
+  // Turn off LED when its time is up
+  if (blinkOffAt && millis() >= blinkOffAt)
+  {
+    digitalWrite(LED_INDICATOR_PIN, LOW);
+    blinkOffAt = 0;
+  }
 }

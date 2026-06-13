@@ -45,7 +45,7 @@ namespace EchoDisplay
         drawSound();
         drawLight();
         drawUnits();
-        drawBluetooth();
+        drawMode();
         display.display();
     }
 
@@ -93,10 +93,10 @@ namespace EchoDisplay
         if (controller->getIsUsingMicroSieverts())
         {
             char dynRadiationStr[16];
-            formatFloat(dynRadiationStr, sizeof(dynRadiationStr), dynLevelSv, 7, 3);
+            formatFloat(dynRadiationStr, sizeof(dynRadiationStr), dynLevelSv, 6, 3);
 
             char statRadiationStr[16];
-            formatFloat(statRadiationStr, sizeof(statRadiationStr), statLevelSv, 7, 3);
+            formatFloat(statRadiationStr, sizeof(statRadiationStr), statLevelSv, 6, 3);
             display.setCursor(0, 20);
             display.setFont(MAIN_FONT);
             display.print("дин ");
@@ -132,6 +132,30 @@ namespace EchoDisplay
             display.setFont(MAIN_FONT);
             display.println(" мкР/ч");
         }
+
+        float observedLevelSv = dynLevelSv;
+
+        if (controller->getIsModeObserveStatic()) {
+            observedLevelSv = statLevelSv;
+        }
+
+        const char *status;
+        if (observedLevelSv < 0.3f)
+            status = "НОРМ.ФОН";
+        else if (observedLevelSv < 1.0f)
+            status = "НОРМ+ФОН";
+        else if (observedLevelSv < 3.0f)
+            status = "ПОВЫШЕН";
+        else if (observedLevelSv < 10.0f)
+            status = "ВЫСОКИЙ";
+        else if (observedLevelSv < 100.0f)
+            status = "ОПАСНОСТЬ";
+        else
+            status = "АВАРИЯ";
+
+        display.setCursor(0, 55);
+        display.setFont(LARGE_FONT);
+        display.println(status);
     }
 
     void Display::drawSound()
@@ -177,18 +201,18 @@ namespace EchoDisplay
         }
     }
 
-    void Display::drawBluetooth()
+    void Display::drawMode()
     {
         // Placeholder for drawing Bluetooth icon
-        if (controller->getIsBluetoothOn())
+        if (controller->getIsModeObserveStatic())
         {
-            // bluetooth_connected
-            display.drawBitmap(114, 47, image_bluetooth_connected_bits, 14, 16, 1);
+            // static mode
+            display.drawBitmap(112, 47, image_mode_stat_bits, 15, 15, 1);
         }
         else
         {
-            // bluetooth_not_connected
-            display.drawBitmap(113, 47, image_bluetooth_not_connected_bits, 14, 16, 1);
+            // dynamic mode
+            display.drawBitmap(112, 47, image_mode_dyn_bits, 15, 15, 1);
         }
     }
 
@@ -204,8 +228,32 @@ namespace EchoDisplay
                               uint8_t width,
                               uint8_t decimals)
     {
-        char format[16];
-        snprintf(format, sizeof(format), "%%%d.%df", width, decimals);
-        snprintf(out, outSize, format, value);
-    };
+        // Count digits in the whole part
+        uint8_t wholeDigits = 1; // at least 1
+        long whole = (long)abs(value);
+        while (whole >= 10)
+        {
+            whole /= 10;
+            wholeDigits++;
+        }
+        // Account for minus sign
+        if (value < 0)
+            wholeDigits++;
+
+        // dot takes 1 character, so available space for decimals is:
+        // width - wholeDigits - 1 (for the dot)
+        int availableDecimals = (int)width - (int)wholeDigits - 1;
+
+        // Clamp: don't exceed requested decimals, don't go below 0
+        if (availableDecimals < 0)
+            availableDecimals = 0;
+        if (availableDecimals > decimals)
+            availableDecimals = decimals;
+
+        // If no room for decimals, skip the dot too
+        if (availableDecimals == 0)
+            snprintf(out, outSize, "%*ld", width, (long)value);
+        else
+            snprintf(out, outSize, "%*.*f", width, availableDecimals, value);
+    }
 }
