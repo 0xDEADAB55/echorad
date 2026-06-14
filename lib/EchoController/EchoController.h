@@ -11,8 +11,12 @@ namespace EchoController
 
     static constexpr float SV_TO_R_RATIO = 0.00877f; // Sievert to Roentgen ratio
 
-    enum class SoundMode : uint8_t{
-        NoSound, Beep, Click, _Count
+    enum class SoundMode : uint8_t
+    {
+        NoSound,
+        Beep,
+        Click,
+        _Count
     };
 
     class Controller

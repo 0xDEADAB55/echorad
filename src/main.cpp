@@ -74,9 +74,8 @@ void setup()
       onFall,
       FALLING);
 
-
   // Setup buzzer
-    pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
 }
 
 void loop()
