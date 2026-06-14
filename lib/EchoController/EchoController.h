@@ -70,7 +70,7 @@ namespace EchoController
         bool needUIUpdate = false;
 
         // Buttons and debounce
-        static constexpr uint32_t DEBOUNCE_MS = 50;
+        static constexpr uint32_t DEBOUNCE_MS = 200;
         uint32_t lastSoundPress = 0;
         uint32_t lastLightPress = 0;
         uint32_t lastUnitsPress = 0;
