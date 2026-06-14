@@ -41,6 +41,7 @@ namespace EchoDisplay
     {
         display.clearDisplay();
         drawBatteryLevel();
+        drawUptime();
         drawRadiationLevel();
         drawSound();
         drawLight();
@@ -80,7 +81,6 @@ namespace EchoDisplay
         }
         display.print(level);
         display.setFont(DIGIT_FONT);
-        display.print(' ');
         display.print(voltage, 2);
         display.print('B');
     }
@@ -135,7 +135,8 @@ namespace EchoDisplay
 
         float observedLevelSv = dynLevelSv;
 
-        if (controller->getIsModeObserveStatic()) {
+        if (controller->getIsModeObserveStatic())
+        {
             observedLevelSv = statLevelSv;
         }
 
@@ -160,15 +161,25 @@ namespace EchoDisplay
 
     void Display::drawSound()
     {
-        if (controller->getIsSoundOn())
+        auto soundMode = controller->GetSoundMode();
+
+        switch (soundMode)
         {
-            // volume_sound
-            display.drawBitmap(113, 1, image_volume_sound_bits, 14, 15, 1);
-        }
-        else
-        {
-            // volume_no_sound
+        case EchoController::SoundMode::NoSound:
             display.drawBitmap(112, 1, image_volume_no_sound_bits, 18, 16, 1);
+            break;
+
+        case EchoController::SoundMode::Beep:
+            display.drawBitmap(113, 1, image_volume_sound_bits, 14, 15, 1);
+            break;
+
+        case EchoController::SoundMode::Click:
+            display.drawBitmap(113, 1, image_volume_click_bits, 13, 15, 1);
+            break;
+
+        default:
+            display.drawBitmap(112, 1, image_volume_no_sound_bits, 18, 16, 1);
+            break;
         }
     }
 
@@ -222,6 +233,19 @@ namespace EchoDisplay
         display.drawBitmap(0, 0, image_echo_splash_bits, 128, 64, 1);
     }
 
+    void Display::drawUptime()
+    {
+        display.setFont(DIGIT_FONT);
+        char uptimeStr[16];
+
+        formatUptime(
+            uptimeStr,
+            sizeof(uptimeStr),
+            controller->getUptimeSeconds()); // 12h4m
+        display.setCursor(58, 10);
+        display.print(uptimeStr);
+    }
+
     void Display::formatFloat(char *out,
                               size_t outSize,
                               float value,
@@ -255,5 +279,33 @@ namespace EchoDisplay
             snprintf(out, outSize, "%*ld", width, (long)value);
         else
             snprintf(out, outSize, "%*.*f", width, availableDecimals, value);
+    }
+
+    void Display::formatUptime(
+        char *out,
+        size_t outSize,
+        uint32_t uptimeSeconds)
+    {
+        const uint32_t hours = uptimeSeconds / 3600;
+        const uint32_t minutes = (uptimeSeconds % 3600) / 60;
+        const uint32_t seconds = uptimeSeconds % 60;
+
+        if (hours > 0)
+        {
+            snprintf(out, outSize, "%luч%luм",
+                     (unsigned long)hours,
+                     (unsigned long)minutes);
+        }
+        else if (minutes > 0)
+        {
+            snprintf(out, outSize, "%luм%luс",
+                     (unsigned long)minutes,
+                     (unsigned long)seconds);
+        }
+        else
+        {
+            snprintf(out, outSize, "%luс",
+                     (unsigned long)seconds);
+        }
     }
 }

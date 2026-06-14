@@ -19,10 +19,8 @@ static constexpr uint8_t PIN_K3 = PIN_100;
 static constexpr uint8_t PIN_K4 = PIN_024;
 
 static uint32_t blinkOffAt = 0;
-static uint32_t lastButtonPress = 0;
-static constexpr uint32_t buttonDebounceIntervalMS = 50;
 
-void buzz();
+void buzz(uint32_t freq, uint32_t durationMs);
 void blink();
 void blinkOff();
 
@@ -75,6 +73,10 @@ void setup()
       digitalPinToInterrupt(GEIGER_COUNTER_PIN),
       onFall,
       FALLING);
+
+
+  // Setup buzzer
+    pinMode(BUZZER_PIN, OUTPUT);
 }
 
 void loop()
@@ -85,9 +87,9 @@ void loop()
   delay(10); // Delay for 10 ms to reduce CPU usage
 }
 
-void buzz()
+void buzz(uint32_t freq, uint32_t durationMs)
 {
-  tone(BUZZER_PIN, 800, 50);
+  tone(BUZZER_PIN, freq, durationMs);
 }
 
 void blink()

@@ -4,12 +4,11 @@
 
 namespace EchoController
 {
-
-    void EchoController::Controller::init()
+    void Controller::init()
     {
     }
 
-    void EchoController::Controller::tick()
+    void Controller::tick()
     {
 
         if (_tick % 200 == 0)
@@ -18,28 +17,29 @@ namespace EchoController
             staticRadiationLevel = radSens->getRadIntensyStatic() * SV_TO_R_RATIO;
             updateUI();
         }
-        if (_tick % 500 == 0)
+        if (_tick % BATTERY_SAMPLING_PERIOD_TICKS == 0)
         {
-            batteryLevelVoltage = readBatteryVoltage();
+            float batteryVoltage = readBatteryVoltage();
+            addBatterySample(batteryVoltage);
             updateUI();
         }
 
         _tick++;
     }
 
-    bool EchoController::Controller::needUpdateUI()
+    bool Controller::needUpdateUI()
     {
         auto needUpdate = this->needUIUpdate;
         needUIUpdate = false;
         return needUpdate;
     }
 
-    void EchoController::Controller::updateUI()
+    void Controller::updateUI()
     {
         needUIUpdate = true;
     }
 
-    void EchoController::Controller::onLightButtonPressed()
+    void Controller::onLightButtonPressed()
     {
         uint32_t now = millis();
         if (now - lastLightPress < DEBOUNCE_MS)
@@ -50,18 +50,18 @@ namespace EchoController
         updateUI();
     }
 
-    void EchoController::Controller::onSoundButtonPressed()
+    void Controller::onSoundButtonPressed()
     {
         uint32_t now = millis();
         if (now - lastSoundPress < DEBOUNCE_MS)
             return;
         lastSoundPress = now;
 
-        isSoundOn = !isSoundOn;
+        soundMode = nextSoundMode(soundMode);
         updateUI();
     }
 
-    void EchoController::Controller::onUnitsButtonPressed()
+    void Controller::onUnitsButtonPressed()
     {
         uint32_t now = millis();
         if (now - lastUnitsPress < DEBOUNCE_MS)
@@ -72,7 +72,7 @@ namespace EchoController
         updateUI();
     }
 
-    void EchoController::Controller::onModeButtonPressed()
+    void Controller::onModeButtonPressed()
     {
         uint32_t now = millis();
         if (now - lastModePress < DEBOUNCE_MS)
@@ -83,16 +83,16 @@ namespace EchoController
         updateUI();
     }
 
-    float EchoController::Controller::getBatteryLevelVoltage() const
+    float Controller::getBatteryLevelVoltage() const
     {
-        return batteryLevelVoltage;
+        return averageBatteryLevelVoltage;
     }
 
-    uint8_t EchoController::Controller::getBatteryLevelPercentage() const
+    uint8_t Controller::getBatteryLevelPercentage() const
     {
         const float zero_level = 3.0f;
         const float max_level = 4.2f;
-        const uint8_t percentage = static_cast<uint8_t>(round((batteryLevelVoltage - zero_level) / (max_level - zero_level) * 100));
+        const uint8_t percentage = static_cast<uint8_t>(round((averageBatteryLevelVoltage - zero_level) / (max_level - zero_level) * 100));
         if (percentage > 100)
         {
             return 100;
@@ -100,45 +100,101 @@ namespace EchoController
         return percentage;
     }
 
-    bool EchoController::Controller::getIsSoundOn() const
+    SoundMode Controller::GetSoundMode() const
     {
-        return isSoundOn;
+        return soundMode;
     }
 
-    float EchoController::Controller::getDynamicRadiationLevel() const
+    float Controller::getDynamicRadiationLevel() const
     {
         return dynamicRadiationLevel;
     }
 
-    float EchoController::Controller::getStaticRadiationLevel() const
+    float Controller::getStaticRadiationLevel() const
     {
-        return EchoController::Controller::staticRadiationLevel;
+        return Controller::staticRadiationLevel;
     }
 
-    bool EchoController::Controller::getIsUsingMicroSieverts() const
+    bool Controller::getIsUsingMicroSieverts() const
     {
         return isUsingMicroSieverts;
     }
 
-    bool EchoController::Controller::getIsLightOn() const
+    bool Controller::getIsLightOn() const
     {
         return isLightOn;
     }
 
-    bool EchoController::Controller::getIsModeObserveStatic() const
+    bool Controller::getIsModeObserveStatic() const
     {
         return isModeStatic;
     }
 
-    void EchoController::Controller::onGeigerPulseReceived()
+    void Controller::onGeigerPulseReceived()
     {
-        if (isSoundOn)
-            buzzCallback();
+        switch (soundMode)
+        {
+        case SoundMode::NoSound:
+            break;
+
+        case SoundMode::Beep:
+            buzzCallback(3000, 50);
+            break;
+
+        case SoundMode::Click:
+            buzzCallback(3000, 3);
+            break;
+
+        default:
+            break;
+        }
         if (isLightOn)
             blinkCallback();
     }
 
-    float EchoController::Controller::readBatteryVoltage()
+    SoundMode Controller::nextSoundMode(SoundMode mode)
+    {
+        auto value = static_cast<uint8_t>(mode);
+
+        value++;
+        if (value >= static_cast<uint8_t>(SoundMode::_Count))
+        {
+            value = 0;
+        }
+
+        return static_cast<SoundMode>(value);
+    }
+
+    void Controller::addBatterySample(float voltage)
+    {
+        if (samplesFilled < BATTERY_SAMPLE_COUNT)
+        {
+            samples[sampleIndex] = voltage;
+            sampleSum += voltage;
+            samplesFilled++;
+        }
+        else
+        {
+            sampleSum -= samples[sampleIndex];
+            samples[sampleIndex] = voltage;
+            sampleSum += voltage;
+        }
+
+        sampleIndex++;
+        if (sampleIndex >= BATTERY_SAMPLE_COUNT)
+        {
+            sampleIndex = 0;
+        }
+
+        averageBatteryLevelVoltage = sampleSum / samplesFilled;
+    }
+
+    uint32_t Controller::getUptimeSeconds() const
+    {
+        return millis() / 1000;
+    }
+
+    float Controller::readBatteryVoltage()
     {
 
         // The volatile keyword is a type qualifier in C/C++ that tells the compiler a variable's value might change in ways that the compiler cannot detect from the code alone.
@@ -198,5 +254,4 @@ namespace EchoController
 
         return (float)vddh;
     }
-
 }
