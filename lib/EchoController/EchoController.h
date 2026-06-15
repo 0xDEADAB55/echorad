@@ -30,7 +30,8 @@ namespace EchoController
         // tick when something happens
         void tick();
 
-        void onLightButtonPressed();
+        void onLightButtonShortPressed();
+        void onLightButtonLongPressed();
         void onSoundButtonPressed();
         void onUnitsButtonPressed();
         void onModeButtonPressed();
@@ -49,6 +50,7 @@ namespace EchoController
         bool getIsUsingMicroSieverts() const;
         bool getIsLightOn() const;
         bool getIsModeObserveStatic() const;
+        bool getIsDisplayOn() const;
         float getBatteryLevelVoltage() const;
         bool getIsBatteryCharging() const;
         uint8_t getBatteryLevelPercentage() const;
@@ -67,6 +69,7 @@ namespace EchoController
         bool isUsingMicroSieverts = false; // true for µSv/h, false for mR/h
         SoundMode soundMode = SoundMode::Beep;
         bool isLightOn = true;
+        bool isDisplayOn = true;
         bool isModeStatic = true;
         bool needUIUpdate = false;
 

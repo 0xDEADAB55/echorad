@@ -13,10 +13,27 @@ static constexpr uint8_t LED_INDICATOR_PIN = PIN_017;  // For indicating a pulse
 
 static constexpr uint8_t RED_LED = PIN_015; // Pin P0.15 called "LED".
 // Oled buttons
-static constexpr uint8_t PIN_K1 = PIN_104;
-static constexpr uint8_t PIN_K2 = PIN_011;
-static constexpr uint8_t PIN_K3 = PIN_100;
-static constexpr uint8_t PIN_K4 = PIN_024;
+static constexpr uint8_t PIN_K1 = PIN_104; // Sound button
+static constexpr uint8_t PIN_K2 = PIN_011; // Light button
+static constexpr uint8_t PIN_K3 = PIN_100; // Unit button
+static constexpr uint8_t PIN_K4 = PIN_024; // Mode button
+
+constexpr uint32_t DEBOUNCE_MS = 40;
+constexpr uint32_t LONG_PRESS_MS = 700;
+
+volatile bool lightButtonEdgeFlag = false;
+
+struct LightButtonState
+{
+  bool stablePressed = false;
+
+  uint32_t lastRawChangeMs = 0;
+  uint32_t pressedAtMs = 0;
+
+  bool longPressFired = false;
+};
+
+LightButtonState lightButton;
 
 static uint32_t blinkOffAt = 0;
 volatile uint32_t impulseReceived = false;
@@ -26,9 +43,10 @@ static uint32_t loops = 0;
 void buzz(uint32_t freq, uint32_t durationMs);
 void blink();
 void blinkOff();
-void onFall();
+void onGeigerImpulse();
+void onLightButtonEdge();
 void sleepUntilInterrupt();
-bool isUsbConnected();
+void updateLightButton();
 
 CG_RadSens radSens(RS_DEFAULT_I2C_ADDRESS);
 EchoController::Controller controller(&radSens, buzz, blink);
@@ -53,8 +71,7 @@ void setup()
   // attach interrupts to buttons for better responsiveness (optional, can be removed if not needed)
   attachInterrupt(PIN_K1, []()
                   { controller.onSoundButtonPressed(); }, FALLING);
-  attachInterrupt(PIN_K2, []()
-                  { controller.onLightButtonPressed(); }, FALLING);
+  attachInterrupt(PIN_K2, onLightButtonEdge, CHANGE);
   attachInterrupt(PIN_K3, []()
                   { controller.onUnitsButtonPressed(); }, FALLING);
   attachInterrupt(PIN_K4, []()
@@ -71,7 +88,7 @@ void setup()
   pinMode(GEIGER_COUNTER_PIN, INPUT_PULLUP);
   attachInterrupt(
       digitalPinToInterrupt(GEIGER_COUNTER_PIN),
-      onFall,
+      onGeigerImpulse,
       FALLING);
 
   // Setup buzzer
@@ -80,12 +97,14 @@ void setup()
 
 void loop()
 {
+  loops++;
   blinkOff();
   if (impulseReceived)
   {
     controller.onGeigerPulseReceived();
     impulseReceived = false;
   }
+  updateLightButton();
   display.update();
   controller.tick();
   sleepUntilInterrupt();
@@ -103,9 +122,14 @@ void buzz(uint32_t freq, uint32_t durationMs)
   tone(BUZZER_PIN, freq, durationMs);
 }
 
-void onFall()
+void onGeigerImpulse()
 {
   impulseReceived = true;
+}
+
+void onLightButtonEdge()
+{
+  lightButtonEdgeFlag = true;
 }
 
 void blink()
@@ -121,5 +145,55 @@ void blinkOff()
   {
     digitalWrite(LED_INDICATOR_PIN, LOW);
     blinkOffAt = 0;
+  }
+}
+
+void updateLightButton()
+{
+  static bool needCheck = false;
+
+  if (lightButtonEdgeFlag)
+  {
+    lightButtonEdgeFlag = false;
+    needCheck = true;
+    lightButton.lastRawChangeMs = millis();
+  }
+
+  if (!needCheck)
+    return;
+
+  uint32_t now = millis();
+
+  if (now - lightButton.lastRawChangeMs < DEBOUNCE_MS)
+    return;
+
+  bool pressed = digitalRead(PIN_K2) == LOW;
+
+  if (pressed != lightButton.stablePressed)
+  {
+    lightButton.stablePressed = pressed;
+
+    if (pressed)
+    {
+      lightButton.pressedAtMs = now;
+      lightButton.longPressFired = false;
+    }
+    else
+    {
+      if (!lightButton.longPressFired)
+      {
+        controller.onLightButtonShortPressed();
+      }
+
+      needCheck = false;
+    }
+  }
+
+  if (lightButton.stablePressed &&
+      !lightButton.longPressFired &&
+      now - lightButton.pressedAtMs >= LONG_PRESS_MS)
+  {
+    lightButton.longPressFired = true;
+    controller.onLightButtonLongPressed();
   }
 }

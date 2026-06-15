@@ -41,8 +41,14 @@ namespace EchoController
         needUIUpdate = true;
     }
 
-    void Controller::onLightButtonPressed()
+    void Controller::onLightButtonShortPressed()
     {
+        if (!isDisplayOn)
+        {
+            isDisplayOn = true;
+            updateUI();
+            return;
+        }
         uint32_t now = millis();
         if (now - lastLightPress < DEBOUNCE_MS)
             return;
@@ -52,8 +58,26 @@ namespace EchoController
         updateUI();
     }
 
+    void Controller::onLightButtonLongPressed()
+    {
+        if (!isDisplayOn)
+        {
+            isDisplayOn = true;
+            updateUI();
+            return;
+        }
+        isDisplayOn = false;
+        updateUI();
+    }
+
     void Controller::onSoundButtonPressed()
     {
+        if (!isDisplayOn)
+        {
+            isDisplayOn = true;
+            updateUI();
+            return;
+        }
         uint32_t now = millis();
         if (now - lastSoundPress < DEBOUNCE_MS)
             return;
@@ -65,6 +89,12 @@ namespace EchoController
 
     void Controller::onUnitsButtonPressed()
     {
+        if (!isDisplayOn)
+        {
+            isDisplayOn = true;
+            updateUI();
+            return;
+        }
         uint32_t now = millis();
         if (now - lastUnitsPress < DEBOUNCE_MS)
             return;
@@ -76,6 +106,12 @@ namespace EchoController
 
     void Controller::onModeButtonPressed()
     {
+        if (!isDisplayOn)
+        {
+            isDisplayOn = true;
+            updateUI();
+            return;
+        }
         uint32_t now = millis();
         if (now - lastModePress < DEBOUNCE_MS)
             return;
@@ -93,6 +129,21 @@ namespace EchoController
     bool Controller::getIsBatteryCharging() const
     {
         return isBatteryCharging;
+    }
+
+    bool Controller::getIsUsingMicroSieverts() const
+    {
+        return isUsingMicroSieverts;
+    }
+
+    bool Controller::getIsLightOn() const
+    {
+        return isLightOn;
+    }
+
+    bool Controller::getIsDisplayOn() const
+    {
+        return isDisplayOn;
     }
 
     uint8_t Controller::getBatteryLevelPercentage() const
@@ -120,16 +171,6 @@ namespace EchoController
     float Controller::getStaticRadiationLevel() const
     {
         return Controller::staticRadiationLevel;
-    }
-
-    bool Controller::getIsUsingMicroSieverts() const
-    {
-        return isUsingMicroSieverts;
-    }
-
-    bool Controller::getIsLightOn() const
-    {
-        return isLightOn;
     }
 
     bool Controller::getIsModeObserveStatic() const

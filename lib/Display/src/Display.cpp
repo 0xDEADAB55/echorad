@@ -51,6 +51,12 @@ namespace EchoDisplay
 
     void Display::repaint()
     {
+        if (!controller->getIsDisplayOn())
+        {
+            turnOff();
+            return;
+        }
+        turnOn();
         display.clearDisplay();
         drawBatteryLevel();
         drawUptime();
