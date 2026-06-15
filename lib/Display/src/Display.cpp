@@ -19,18 +19,30 @@ namespace EchoDisplay
         display.display();
         delay(3000); // Show splash screen for 2 seconds
     }
+
     void Display::clear()
     {
         display.clearDisplay();
     }
+
     void Display::print(const char *text)
     {
         display.println(text);
         display.display();
     }
 
+    void Display::printNumber(uint32_t number)
+    {
+        display.clearDisplay();
+        display.setCursor(0, 10);
+        display.setFont(DIGIT_FONT);
+        display.print(number);
+        display.display();
+    }
+
     void Display::update()
     {
+        frame++;
         if (controller->needUpdateUI())
         {
             repaint();
@@ -80,6 +92,11 @@ namespace EchoDisplay
             level = '0';
         }
         display.print(level);
+        if (controller->getIsBatteryCharging())
+        {
+            display.drawBitmap(17, 2, image_battery_charging_bits, 6, 10, 1);
+            return;
+        }
         display.setFont(DIGIT_FONT);
         display.print(voltage, 2);
         display.print('B');
@@ -233,6 +250,16 @@ namespace EchoDisplay
         display.drawBitmap(0, 0, image_echo_splash_bits, 128, 64, 1);
     }
 
+    void Display::turnOn()
+    {
+        display.ssd1306_command(SSD1306_DISPLAYON);
+    }
+
+    void Display::turnOff()
+    {
+        display.ssd1306_command(SSD1306_DISPLAYOFF);
+    }
+
     void Display::drawUptime()
     {
         display.setFont(DIGIT_FONT);
@@ -241,7 +268,7 @@ namespace EchoDisplay
         formatUptime(
             uptimeStr,
             sizeof(uptimeStr),
-            controller->getUptimeSeconds()); // 12h4m
+            controller->getUptimeSeconds());
         display.setCursor(58, 10);
         display.print(uptimeStr);
     }
@@ -286,11 +313,18 @@ namespace EchoDisplay
         size_t outSize,
         uint32_t uptimeSeconds)
     {
-        const uint32_t hours = uptimeSeconds / 3600;
+        const uint32_t days = uptimeSeconds / 86400;
+        const uint32_t hours = (uptimeSeconds % 86400) / 3600;
         const uint32_t minutes = (uptimeSeconds % 3600) / 60;
         const uint32_t seconds = uptimeSeconds % 60;
 
-        if (hours > 0)
+        if (days > 0)
+        {
+            snprintf(out, outSize, "%luд%luч",
+                     (unsigned long)days,
+                     (unsigned long)hours);
+        }
+        else if (hours > 0)
         {
             snprintf(out, outSize, "%luч%luм",
                      (unsigned long)hours,

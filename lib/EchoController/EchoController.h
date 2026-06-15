@@ -8,6 +8,7 @@ namespace EchoController
 
     typedef void (*BlinkCallback)(void);
     typedef void (*BuzzerCallback)(uint32_t freq, uint32_t durationMs);
+    typedef bool (*BatteryChargingCallback)(void);
 
     static constexpr float SV_TO_R_RATIO = 0.00877f; // Sievert to Roentgen ratio
 
@@ -26,7 +27,7 @@ namespace EchoController
 
         void init();
 
-        // Tick should be called 100 times per second
+        // tick when something happens
         void tick();
 
         void onLightButtonPressed();
@@ -49,6 +50,7 @@ namespace EchoController
         bool getIsLightOn() const;
         bool getIsModeObserveStatic() const;
         float getBatteryLevelVoltage() const;
+        bool getIsBatteryCharging() const;
         uint8_t getBatteryLevelPercentage() const;
         uint32_t getUptimeSeconds() const;
 
@@ -57,9 +59,8 @@ namespace EchoController
         BuzzerCallback buzzCallback;
         BlinkCallback blinkCallback;
 
-        uint32_t lastMeasurementTime = 0;
-
-        uint32_t _tick = 0;
+        static constexpr uint32_t DISPLAY_UPDATE_PERIOD_MS = 2000;
+        static constexpr uint32_t BATTERY_SAMPLE_PERIOD_MS = 10000;
 
         float dynamicRadiationLevel = 0;   // Micro Sieverts per hour (µSv/h)
         float staticRadiationLevel = 0;    // Micro Sieverts per hour (µSv/h)
@@ -68,6 +69,10 @@ namespace EchoController
         bool isLightOn = true;
         bool isModeStatic = true;
         bool needUIUpdate = false;
+
+        uint32_t lastDisplayUpdate = 0;
+        uint32_t lastBatterySample = 0;
+        bool isBatteryCharging = false;
 
         // Buttons and debounce
         static constexpr uint32_t DEBOUNCE_MS = 200;
@@ -84,15 +89,16 @@ namespace EchoController
         float averageBatteryLevelVoltage = 0; // Battery level as voltage
 
         static constexpr uint16_t BATTERY_SAMPLE_COUNT = 100;
-        static constexpr uint32_t BATTERY_SAMPLING_PERIOD_TICKS = 1000; // Battery sampling period
         float samples[BATTERY_SAMPLE_COUNT];
         float sampleSum = 0;
 
         uint8_t sampleIndex = 0;
         uint8_t samplesFilled = 0;
+
         void addBatterySample(float sample);
         static float readBatteryVoltage();
         static SoundMode nextSoundMode(SoundMode mode);
+
         // UI
         void updateUI();
     };

@@ -10,21 +10,23 @@ namespace EchoController
 
     void Controller::tick()
     {
-
-        if (_tick % 200 == 0)
+        uint32_t now = millis();
+        if ((now - lastDisplayUpdate) > DISPLAY_UPDATE_PERIOD_MS)
         {
             dynamicRadiationLevel = radSens->getRadIntensyDynamic() * SV_TO_R_RATIO;
             staticRadiationLevel = radSens->getRadIntensyStatic() * SV_TO_R_RATIO;
+            lastDisplayUpdate = now;
             updateUI();
         }
-        if (_tick % BATTERY_SAMPLING_PERIOD_TICKS == 0)
+        if ((now - lastBatterySample) > BATTERY_SAMPLE_PERIOD_MS)
         {
-            float batteryVoltage = readBatteryVoltage();
-            addBatterySample(batteryVoltage);
-            updateUI();
-        }
 
-        _tick++;
+            float batteryVoltage = readBatteryVoltage();
+            isBatteryCharging = NRF_POWER->USBREGSTATUS &
+                                POWER_USBREGSTATUS_VBUSDETECT_Msk;
+            addBatterySample(batteryVoltage);
+            lastBatterySample = now;
+        }
     }
 
     bool Controller::needUpdateUI()
@@ -86,6 +88,11 @@ namespace EchoController
     float Controller::getBatteryLevelVoltage() const
     {
         return averageBatteryLevelVoltage;
+    }
+
+    bool Controller::getIsBatteryCharging() const
+    {
+        return isBatteryCharging;
     }
 
     uint8_t Controller::getBatteryLevelPercentage() const
@@ -167,6 +174,14 @@ namespace EchoController
 
     void Controller::addBatterySample(float voltage)
     {
+        if (isBatteryCharging)
+        {
+            averageBatteryLevelVoltage = voltage;
+            samplesFilled = 0;
+            sampleSum = 0;
+            sampleIndex = 0;
+            return;
+        }
         if (samplesFilled < BATTERY_SAMPLE_COUNT)
         {
             samples[sampleIndex] = voltage;
@@ -185,7 +200,6 @@ namespace EchoController
         {
             sampleIndex = 0;
         }
-
         averageBatteryLevelVoltage = sampleSum / samplesFilled;
     }
 

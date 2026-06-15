@@ -19,19 +19,20 @@ static constexpr uint8_t PIN_K3 = PIN_100;
 static constexpr uint8_t PIN_K4 = PIN_024;
 
 static uint32_t blinkOffAt = 0;
+volatile uint32_t impulseReceived = false;
+
+static uint32_t loops = 0;
 
 void buzz(uint32_t freq, uint32_t durationMs);
 void blink();
 void blinkOff();
+void onFall();
+void sleepUntilInterrupt();
+bool isUsbConnected();
 
 CG_RadSens radSens(RS_DEFAULT_I2C_ADDRESS);
 EchoController::Controller controller(&radSens, buzz, blink);
 EchoDisplay::Display display(&Wire, &controller);
-
-void onFall()
-{
-  controller.onGeigerPulseReceived();
-}
 
 void setup()
 {
@@ -65,7 +66,6 @@ void setup()
   Wire.setTimeout(50);
   display.init();
   controller.init();
-  // Serial.begin(115200);
 
   // setup geiger counter pulse detection
   pinMode(GEIGER_COUNTER_PIN, INPUT_PULLUP);
@@ -81,14 +81,31 @@ void setup()
 void loop()
 {
   blinkOff();
+  if (impulseReceived)
+  {
+    controller.onGeigerPulseReceived();
+    impulseReceived = false;
+  }
   display.update();
   controller.tick();
-  delay(10); // Delay for 10 ms to reduce CPU usage
+  sleepUntilInterrupt();
+}
+
+void sleepUntilInterrupt()
+{
+  __SEV();
+  __WFE();
+  __WFE();
 }
 
 void buzz(uint32_t freq, uint32_t durationMs)
 {
   tone(BUZZER_PIN, freq, durationMs);
+}
+
+void onFall()
+{
+  impulseReceived = true;
 }
 
 void blink()
