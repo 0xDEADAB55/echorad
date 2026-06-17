@@ -12,6 +12,22 @@ namespace EchoController
 
     static constexpr float SV_TO_R_RATIO = 0.00877f; // Sievert to Roentgen ratio
 
+    struct BatteryPoint
+    {
+        float voltage;
+        uint8_t percent;
+    };
+
+    constexpr BatteryPoint batteryTable[] = {
+        {4.15f, 100},
+        {4.05f, 80},
+        {3.95f, 60},
+        {3.85f, 40},
+        {3.78f, 20},
+        {3.70f, 10},
+        {3.50f, 5},
+    };
+
     enum class SoundMode : uint8_t
     {
         NoSound,

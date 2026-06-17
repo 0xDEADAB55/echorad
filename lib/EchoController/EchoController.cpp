@@ -148,14 +148,33 @@ namespace EchoController
 
     uint8_t Controller::getBatteryLevelPercentage() const
     {
-        const float zero_level = 3.0f;
-        const float max_level = 4.2f;
-        const uint8_t percentage = static_cast<uint8_t>(round((averageBatteryLevelVoltage - zero_level) / (max_level - zero_level) * 100));
-        if (percentage > 100)
-        {
+
+        constexpr size_t count = sizeof(batteryTable) / sizeof(batteryTable[0]);
+        float voltage = averageBatteryLevelVoltage;
+        if (voltage >= batteryTable[0].voltage)
             return 100;
+
+        if (voltage < batteryTable[count - 1].voltage)
+            return 0;
+
+        for (size_t i = 0; i < count - 1; ++i)
+        {
+            const auto &high = batteryTable[i];
+            const auto &low = batteryTable[i + 1];
+
+            if (voltage >= low.voltage)
+            {
+                float t = (voltage - low.voltage) /
+                          (high.voltage - low.voltage);
+
+                return static_cast<uint8_t>(
+                    low.percent +
+                    t * (high.percent - low.percent) +
+                    0.5f);
+            }
         }
-        return percentage;
+
+        return 0;
     }
 
     SoundMode Controller::GetSoundMode() const

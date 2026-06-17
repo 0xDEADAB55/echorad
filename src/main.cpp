@@ -18,7 +18,7 @@ static constexpr uint8_t PIN_K2 = PIN_011; // Light button
 static constexpr uint8_t PIN_K3 = PIN_100; // Unit button
 static constexpr uint8_t PIN_K4 = PIN_024; // Mode button
 
-constexpr uint32_t DEBOUNCE_MS = 40;
+constexpr uint32_t DEBOUNCE_MS = 50;
 constexpr uint32_t LONG_PRESS_MS = 700;
 
 volatile bool lightButtonEdgeFlag = false;

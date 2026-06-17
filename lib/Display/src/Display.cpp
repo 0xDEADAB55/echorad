@@ -77,26 +77,23 @@ namespace EchoDisplay
         display.setCursor(0, 10);
         display.setFont(&Bat6pt7b);
         char level = '0';
-        if (percentage <= 100)
-        {
-            level = '4';
-        }
-        if (percentage <= 80)
-        {
-            level = '3';
-        }
-        if (percentage <= 50)
-        {
-            level = '2';
-        }
-        if (percentage <= 30)
+        if (percentage >= 20)
         {
             level = '1';
         }
-        if (percentage <= 15)
+        if (percentage >= 30)
         {
-            level = '0';
+            level = '2';
         }
+        if (percentage >= 60)
+        {
+            level = '3';
+        }
+        if (percentage >= 80)
+        {
+            level = '4';
+        }
+
         display.print(level);
         if (controller->getIsBatteryCharging())
         {
